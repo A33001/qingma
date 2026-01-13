@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>青马易战刷题系统</title>
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Microsoft YaHei', Arial, sans-serif;
+    }
+
+    body {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 25px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 30px;
+    }
+
+    .stats {
+      background-color: #e9f7fe;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+    }
+
+    .subject-select {
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .subject-select select {
+      padding: 10px 15px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      width: 250px;
+    }
+
+    .question-container {
+      margin-bottom: 25px;
+    }
+
+    .question-number {
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-bottom: 8px;
+    }
+
+    .question-text {
+      font-size: 18px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+
+    .options {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .option {
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 16px;
+    }
+
+    .option:hover {
+      background-color: #f0f7ff;
+      border-color: #9dc8e2;
+    }
+
+    .option.selected {
+      background-color: #e3f2fd;
+      border-color: #64b5f6;
+    }
+
+    .option.correct {
+      background-color: #e8f5e9;
+      border-color: #81c784;
+      color: #2e7d32;
+      font-weight: bold;
+    }
+
+    .option.wrong {
+      background-color: #ffebee;
+      border-color: #ef5350;
+      color: #c62828;
+    }
+
+    .next-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .next-btn:hover {
+      background-color: #2980b9;
+    }
+
+    .next-btn:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    .welcome-screen,
+    .question-screen {
+      transition: opacity 0.3s;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .answer-explanation {
+      margin-top: 15px;
+      padding: 12px;
+      background-color: #f8f9fa;
+      border-left: 4px solid #3498db;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .answer-explanation strong {
+      color: #2c3e50;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #7f8c8d;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>青马易战刷题系统</h1>
+
+    <div class="stats hidden" id="stats">
+      <span>已做: <span id="questions-answered">0</span> 题</span>
+      <span>正确率: <span id="accuracy">0%</span></span>
+    </div>
+
+    <div class="subject-select" id="subject-select">
+      <select id="subject">
+        <option value="">请选择科目</option>
+        <option value="9">马克思主义基本原理（9）</option>
+        <option value="12">习近平新时代中国特色社会主义思想（12）</option>
+      </select>
+    </div>
+
+    <div class="welcome-screen" id="welcome">
+      <p style="text-align: center; line-height: 1.6;">
+        请选择左侧科目开始刷题。<br>
+        系统将从题库中随机抽取题目，点击选项答题后会立即显示结果，<br>
+        点击"下一题"继续练习。
+      </p>
+    </div>
+
+    <div class="question-screen hidden" id="question-screen">
+      <div class="question-container">
+        <div class="question-number" id="question-number"></div>
+        <div class="question-text" id="question-text"></div>
+        <ul class="options" id="options"></ul>
+        <div class="answer-explanation hidden" id="explanation"></div>
+      </div>
+      <button class="next-btn" id="next-btn" disabled>下一题</button>
+    </div>
+
+    <div class="footer">
+      <p>青马易战刷题系统 | 黄 | 不断更新中...</p>
+    </div>
+  </div>
+
+  <script>
+    // 应用状态
+    let appState = {
+      currentSubject: null,
+      questions: [],
+      answeredQuestions: [],
+      correctCount: 0,
+      currentQuestionIndex: -1
+    };
+
+    // DOM元素
+    const elements = {
+      subjectSelect: document.getElementById('subject'),
+      welcomeScreen: document.getElementById('welcome'),
+      questionScreen: document.getElementById('question-screen'),
+      stats: document.getElementById('stats'),
+      questionNumber: document.getElementById('question-number'),
+      questionText: document.getElementById('question-text'),
+      options: document.getElementById('options'),
+      explanation: document.getElementById('explanation'),
+      nextBtn: document.getElementById('next-btn'),
+      questionsAnswered: document.getElementById('questions-answered'),
+      accuracy: document.getElementById('accuracy')
+    };
+
+    // 从JSON文件加载题库数据
+    async function loadSubjectData(subject) {
+      try {
+        const response = await fetch(`data/subject_${subject}.json`);
+        if (!response.ok) {
+          throw new Error('Failed to load subject data');
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Error loading subject ', error);
+        alert('题库加载失败，请检查题库文件是否已正确上传到data目录');
+        return null;
+      }
+    }
+
+    // 处理科目选择变化
+    async function handleSubjectChange() {
+      const subject = elements.subjectSelect.value;
+      if (!subject) return;
+
+      // 重置状态
+      resetAppState();
+
+      // 显示加载状态
+      elements.welcomeScreen.innerHTML = '<p>正在加载题库，请稍候...</p>';
+
+      // 加载题库
+      const subjectData = await loadSubjectData(subject);
+      if (subjectData) {
+        appState.questions = [...subjectData.questions];
+        // 显示题目界面
+        elements.welcomeScreen.classList.add('hidden');
+        elements.questionScreen.classList.remove('hidden');
+        elements.stats.classList.remove('hidden');
+
+        // 加载第一题
+        loadNextQuestion();
+      } else {
+        elements.welcomeScreen.classList.remove('hidden');
+        elements.welcomeScreen.innerHTML = '<p style="color: red;">题库加载失败，请刷新页面重试</p>';
+      }
+    }
+
+    // 重置应用状态
+    function resetAppState() {
+      appState = {
+        currentSubject: null,
+        questions: [],
+        answeredQuestions: [],
+        correctCount: 0,
+        currentQuestionIndex: -1
+      };
+
+      // 重置UI
+      elements.options.innerHTML = '';
+      elements.explanation.classList.add('hidden');
+      elements.explanation.innerHTML = '';
+      elements.nextBtn.disabled = true;
+      elements.questionsAnswered.textContent = '0';
+      elements.accuracy.textContent = '0%';
+    }
+
+    // 加载下一题
+    function loadNextQuestion() {
+      // 检查是否还有题目
+      if (appState.questions.length === 0) {
+        alert('题库已用完，请重新选择科目！');
+        return;
+      }
+
+      // 从剩余题目中随机选择一题
+      const randomIndex = Math.floor(Math.random() * appState.questions.length);
+      const question = appState.questions[randomIndex];
+
+      // 从题库中移除该题，确保不重复
+      appState.questions.splice(randomIndex, 1);
+      appState.answeredQuestions.push(question);
+      appState.currentQuestionIndex++;
+
+      // 更新UI
+      elements.questionNumber.textContent = `第 ${appState.currentQuestionIndex + 1} 题`;
+      elements.questionText.textContent = question.question;
+      elements.options.innerHTML = '';
+
+      // 创建选项
+      question.options.forEach((option, index) => {
+        const li = document.createElement('li');
+        li.className = 'option';
+        li.textContent = option;
+        li.dataset.option = String.fromCharCode(65 + index); // A, B, C, D...
+        li.addEventListener('click', handleOptionClick);
+        elements.options.appendChild(li);
+      });
+
+      // 重置解释区域
+      elements.explanation.classList.add('hidden');
+      elements.explanation.innerHTML = '';
+
+      // 禁用下一题按钮，直到用户选择答案
+      elements.nextBtn.disabled = true;
+    }
+
+    // 处理选项点击
+    function handleOptionClick(e) {
+      const selectedOption = e.target;
+      const question = appState.answeredQuestions[appState.currentQuestionIndex];
+
+      // 如果已经选择了选项，不再处理
+      if (elements.nextBtn.disabled === false) return;
+
+      // 移除所有选项的选中状态
+      document.querySelectorAll('.option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+
+      // 添加选中状态
+      selectedOption.classList.add('selected');
+
+      // 检查答案
+      const isCorrect = selectedOption.dataset.option === question.correctOption;
+
+      if (isCorrect) {
+        selectedOption.classList.add('correct');
+        appState.correctCount++;
+      } else {
+        selectedOption.classList.add('wrong');
+
+        // 标记正确答案
+        document.querySelectorAll('.option').forEach(opt => {
+          if (opt.dataset.option === question.correctOption) {
+            opt.classList.add('correct');
+          }
+        });
+      }
+
+      // 显示解释
+      elements.explanation.innerHTML = `<strong>正确答案：</strong> ${question.correctAnswer}`;
+      elements.explanation.classList.remove('hidden');
+
+      // 更新统计
+      updateStats();
+
+      // 启用下一题按钮
+      elements.nextBtn.disabled = false;
+    }
+
+    // 更新统计信息
+    function updateStats() {
+      const total = appState.currentQuestionIndex + 1;
+      const accuracy = total > 0 ? Math.round((appState.correctCount / total) * 100) : 0;
+
+      elements.questionsAnswered.textContent = total;
+      elements.accuracy.textContent = `${accuracy}%`;
+    }
+
+    // 设置事件监听
+    function setupEventListeners() {
+      elements.subjectSelect.addEventListener('change', handleSubjectChange);
+      elements.nextBtn.addEventListener('click', loadNextQuestion);
+    }
+
+    // 初始化
+    function init() {
+      setupEventListeners();
+    }
+
+    // 初始化应用
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+
+</html>
